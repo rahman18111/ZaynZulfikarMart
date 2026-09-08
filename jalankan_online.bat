@@ -8,7 +8,7 @@ echo ========================================================
 echo.
 
 echo [1/2] Memastikan Server Aktif (Port 5000)...
-start "ZaynStore - Server" cmd /k "cd /d %~dp0backend && node src/server.js"
+start "ZaynStore - Server" cmd /k "cd /d %~dp0 && node backend/src/server.js"
 
 timeout /t 3 /nobreak >nul
 
@@ -19,13 +19,14 @@ echo.
 echo ========================================================
 echo  Server & Cloudflare Tunnel Sedang Berjalan!
 echo  
-echo  Link Aktif Saat Ini:
-echo  https://brooks-comply-experiments-cuisine.trycloudflare.com
+echo  Link Publik Online (Bisa dibuka di HP luar toko):
+echo  https://barriers-deliver-developed-selective.trycloudflare.com
 echo  
-echo  Akses Lokal (WiFi Toko / HP):
-echo  http://192.168.1.15:5000
+echo  Akses Lokal (WiFi Toko / HP / Laptop):
+echo  http://192.168.100.73:5000
+echo  http://localhost:5000
 echo.
-echo  Akun Login:
+echo  Akun Login Admin:
 echo  Username: ZaynZulfi23
 echo  Password: #Arafat23
 echo ========================================================
