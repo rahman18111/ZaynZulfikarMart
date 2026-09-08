@@ -3,104 +3,200 @@ import bcrypt from 'bcryptjs';
 
 export const initDb = async (req, res) => {
   try {
-    // 1. Create tables
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(50) NOT NULL UNIQUE,
-        password_hash VARCHAR(255) NOT NULL,
-        nama_lengkap VARCHAR(100) NOT NULL,
-        role ENUM('admin') DEFAULT 'admin',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB;
-    `);
+    const isPg = pool.isPostgres;
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS kategori (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        nama_kategori VARCHAR(100) NOT NULL UNIQUE,
-        keterangan VARCHAR(255) NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB;
-    `);
+    if (isPg) {
+      // PostgreSQL / Supabase Schema
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          username VARCHAR(50) NOT NULL UNIQUE,
+          password_hash VARCHAR(255) NOT NULL,
+          nama_lengkap VARCHAR(100) NOT NULL,
+          role VARCHAR(20) DEFAULT 'admin',
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS barang (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        kode_barang VARCHAR(50) NOT NULL UNIQUE,
-        nama_barang VARCHAR(150) NOT NULL,
-        kategori_id INT NULL,
-        harga_beli DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-        harga_jual DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-        stok INT NOT NULL DEFAULT 0,
-        stok_minimum INT NOT NULL DEFAULT 5,
-        satuan VARCHAR(20) NOT NULL DEFAULT 'Pcs',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (kategori_id) REFERENCES kategori(id) ON DELETE SET NULL
-      ) ENGINE=InnoDB;
-    `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS kategori (
+          id SERIAL PRIMARY KEY,
+          nama_kategori VARCHAR(100) NOT NULL UNIQUE,
+          keterangan VARCHAR(255) NULL,
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS barang_masuk (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        kode_masuk VARCHAR(50) NOT NULL UNIQUE,
-        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
-        total_item INT NOT NULL DEFAULT 0,
-        total_biaya DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
-        catatan TEXT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB;
-    `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS barang (
+          id SERIAL PRIMARY KEY,
+          kode_barang VARCHAR(50) NOT NULL UNIQUE,
+          nama_barang VARCHAR(150) NOT NULL,
+          kategori_id INT NULL REFERENCES kategori(id) ON DELETE SET NULL,
+          harga_beli NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+          harga_jual NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+          stok INT NOT NULL DEFAULT 0,
+          stok_minimum INT NOT NULL DEFAULT 5,
+          satuan VARCHAR(20) NOT NULL DEFAULT 'Pcs',
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS barang_masuk_detail (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        barang_masuk_id INT NOT NULL,
-        barang_id INT NOT NULL,
-        jumlah INT NOT NULL,
-        harga_beli DECIMAL(12, 2) NOT NULL,
-        subtotal DECIMAL(14, 2) NOT NULL,
-        FOREIGN KEY (barang_masuk_id) REFERENCES barang_masuk(id) ON DELETE CASCADE,
-        FOREIGN KEY (barang_id) REFERENCES barang(id) ON DELETE RESTRICT
-      ) ENGINE=InnoDB;
-    `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS barang_masuk (
+          id SERIAL PRIMARY KEY,
+          kode_masuk VARCHAR(50) NOT NULL UNIQUE,
+          tanggal TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+          total_item INT NOT NULL DEFAULT 0,
+          total_biaya NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+          catatan TEXT NULL,
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS transaksi (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        kode_transaksi VARCHAR(50) NOT NULL UNIQUE,
-        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
-        total_belanja DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
-        total_modal DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
-        laba_kotor DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
-        uang_bayar DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
-        kembalian DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
-        metode_bayar ENUM('Tunai', 'QRIS', 'Transfer') DEFAULT 'Tunai',
-        nama_pelanggan VARCHAR(100) DEFAULT 'Pelanggan Umum',
-        catatan TEXT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB;
-    `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS barang_masuk_detail (
+          id SERIAL PRIMARY KEY,
+          barang_masuk_id INT NOT NULL REFERENCES barang_masuk(id) ON DELETE CASCADE,
+          barang_id INT NOT NULL REFERENCES barang(id) ON DELETE RESTRICT,
+          jumlah INT NOT NULL,
+          harga_beli NUMERIC(12, 2) NOT NULL,
+          subtotal NUMERIC(14, 2) NOT NULL
+        );
+      `);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS transaksi_detail (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        transaksi_id INT NOT NULL,
-        barang_id INT NULL,
-        nama_barang_snapshot VARCHAR(150) NOT NULL,
-        harga_jual DECIMAL(12, 2) NOT NULL,
-        harga_beli DECIMAL(12, 2) NOT NULL,
-        jumlah INT NOT NULL,
-        subtotal DECIMAL(14, 2) NOT NULL,
-        laba DECIMAL(14, 2) NOT NULL,
-        FOREIGN KEY (transaksi_id) REFERENCES transaksi(id) ON DELETE CASCADE,
-        FOREIGN KEY (barang_id) REFERENCES barang(id) ON DELETE SET NULL
-      ) ENGINE=InnoDB;
-    `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS transaksi (
+          id SERIAL PRIMARY KEY,
+          kode_transaksi VARCHAR(50) NOT NULL UNIQUE,
+          tanggal TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+          total_belanja NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+          total_modal NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+          laba_kotor NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+          uang_bayar NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+          kembalian NUMERIC(14, 2) NOT NULL DEFAULT 0.00,
+          metode_bayar VARCHAR(30) DEFAULT 'Tunai',
+          nama_pelanggan VARCHAR(100) DEFAULT 'Pelanggan Umum',
+          catatan TEXT NULL,
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
 
-    // 2. Admin user
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS transaksi_detail (
+          id SERIAL PRIMARY KEY,
+          transaksi_id INT NOT NULL REFERENCES transaksi(id) ON DELETE CASCADE,
+          barang_id INT NULL REFERENCES barang(id) ON DELETE SET NULL,
+          nama_barang_snapshot VARCHAR(150) NOT NULL,
+          harga_jual NUMERIC(12, 2) NOT NULL,
+          harga_beli NUMERIC(12, 2) NOT NULL,
+          jumlah INT NOT NULL,
+          subtotal NUMERIC(14, 2) NOT NULL,
+          laba NUMERIC(14, 2) NOT NULL
+        );
+      `);
+    } else {
+      // MySQL / XAMPP Schema
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          username VARCHAR(50) NOT NULL UNIQUE,
+          password_hash VARCHAR(255) NOT NULL,
+          nama_lengkap VARCHAR(100) NOT NULL,
+          role ENUM('admin') DEFAULT 'admin',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB;
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS kategori (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          nama_kategori VARCHAR(100) NOT NULL UNIQUE,
+          keterangan VARCHAR(255) NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB;
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS barang (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          kode_barang VARCHAR(50) NOT NULL UNIQUE,
+          nama_barang VARCHAR(150) NOT NULL,
+          kategori_id INT NULL,
+          harga_beli DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+          harga_jual DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+          stok INT NOT NULL DEFAULT 0,
+          stok_minimum INT NOT NULL DEFAULT 5,
+          satuan VARCHAR(20) NOT NULL DEFAULT 'Pcs',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          FOREIGN KEY (kategori_id) REFERENCES kategori(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB;
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS barang_masuk (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          kode_masuk VARCHAR(50) NOT NULL UNIQUE,
+          tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
+          total_item INT NOT NULL DEFAULT 0,
+          total_biaya DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
+          catatan TEXT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB;
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS barang_masuk_detail (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          barang_masuk_id INT NOT NULL,
+          barang_id INT NOT NULL,
+          jumlah INT NOT NULL,
+          harga_beli DECIMAL(12, 2) NOT NULL,
+          subtotal DECIMAL(14, 2) NOT NULL,
+          FOREIGN KEY (barang_masuk_id) REFERENCES barang_masuk(id) ON DELETE CASCADE,
+          FOREIGN KEY (barang_id) REFERENCES barang(id) ON DELETE RESTRICT
+        ) ENGINE=InnoDB;
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS transaksi (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          kode_transaksi VARCHAR(50) NOT NULL UNIQUE,
+          tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
+          total_belanja DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
+          total_modal DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
+          laba_kotor DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
+          uang_bayar DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
+          kembalian DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
+          metode_bayar ENUM('Tunai', 'QRIS', 'Transfer') DEFAULT 'Tunai',
+          nama_pelanggan VARCHAR(100) DEFAULT 'Pelanggan Umum',
+          catatan TEXT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB;
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS transaksi_detail (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          transaksi_id INT NOT NULL,
+          barang_id INT NULL,
+          nama_barang_snapshot VARCHAR(150) NOT NULL,
+          harga_jual DECIMAL(12, 2) NOT NULL,
+          harga_beli DECIMAL(12, 2) NOT NULL,
+          jumlah INT NOT NULL,
+          subtotal DECIMAL(14, 2) NOT NULL,
+          laba DECIMAL(14, 2) NOT NULL,
+          FOREIGN KEY (transaksi_id) REFERENCES transaksi(id) ON DELETE CASCADE,
+          FOREIGN KEY (barang_id) REFERENCES barang(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB;
+      `);
+    }
+
+    // Admin user default
     const [users] = await pool.query('SELECT * FROM users WHERE username = ?', ['ZaynZulfi23']);
     if (users.length === 0) {
       const salt = await bcrypt.genSalt(10);
@@ -111,9 +207,10 @@ export const initDb = async (req, res) => {
       );
     }
 
-    // 3. Categories
+    // Categories
     const [kats] = await pool.query('SELECT COUNT(*) as count FROM kategori');
-    if (kats[0].count === 0) {
+    const katCount = parseInt(kats[0].count, 10) || 0;
+    if (katCount === 0) {
       await pool.query(`
         INSERT INTO kategori (nama_kategori, keterangan) VALUES
         ('Makanan & Camilan', 'Aneka makanan ringan, biskuit, dan mie instan'),
@@ -124,9 +221,10 @@ export const initDb = async (req, res) => {
       `);
     }
 
-    // 4. Initial products
+    // Initial products
     const [barangs] = await pool.query('SELECT COUNT(*) as count FROM barang');
-    if (barangs[0].count === 0) {
+    const barangCount = parseInt(barangs[0].count, 10) || 0;
+    if (barangCount === 0) {
       const [kategoriRows] = await pool.query('SELECT id, nama_kategori FROM kategori');
       const getKatId = (name) => {
         const found = kategoriRows.find(k => k.nama_kategori.toLowerCase().includes(name.toLowerCase()));
@@ -158,7 +256,8 @@ export const initDb = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Database berhasil diinisialisasi! Tabel, user admin ZaynZulfi23, kategori, dan barang awal siap digunakan.'
+      engine: isPg ? 'Supabase (PostgreSQL)' : 'MySQL (XAMPP)',
+      message: `Database (${isPg ? 'Supabase' : 'MySQL'}) berhasil diinisialisasi! Tabel, user admin ZaynZulfi23, kategori, dan barang awal siap digunakan.`
     });
   } catch (error) {
     console.error('Error initDb:', error);

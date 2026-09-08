@@ -17,9 +17,19 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
-    "mysql2": "^3.12.0"
+    "mysql2": "^3.12.0",
+    "pg": "^8.23.0"
   },
-  "keywords": ["pos", "kasir", "manajemen-stok", "react", "nodejs", "mysql", "vercel", "serverless"],
+  "keywords": [
+    "pos",
+    "kasir",
+    "manajemen-stok",
+    "react",
+    "nodejs",
+    "mysql",
+    "vercel",
+    "serverless"
+  ],
   "author": "Zayn Zulfikar",
   "license": "ISC"
 }
