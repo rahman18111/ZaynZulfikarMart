@@ -6,9 +6,14 @@ import { createTransaksi, getTransaksi, getTransaksiById } from '../controllers/
 import { getStokMonitoring, adjustStok } from '../controllers/stokController.js';
 import { getLaporan } from '../controllers/laporanController.js';
 import { getDashboardSummary } from '../controllers/dashboardController.js';
+import { initDb } from '../controllers/initDbController.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// 0. Cloud DB Initialization (One-Click Setup)
+router.get('/init-db', initDb);
+router.post('/init-db', initDb);
 
 // 1. Auth routes
 router.post('/auth/login', login);
